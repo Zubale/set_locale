@@ -392,5 +392,23 @@ defmodule SetLocaleTest do
       assert conn.assigns == %{locale: "fr"}
       assert Gettext.get_locale(MyGettext) == @default_locale
     end
+
+    test "it should allow configure the flag use_base_locale" do
+      options_with_use_base_locale = %SetLocale.Config{
+        @default_options
+        | use_base_locale: true,
+        cookie_disabled: true,
+        allow_redirect: false
+      }
+
+      conn =
+        Phoenix.ConnTest.build_conn(:get, "/foo/bar/baz", %{"locale" => "es-CR"})
+        |> Plug.Conn.fetch_cookies()
+        |> SetLocale.call(options_with_use_base_locale)
+
+      # assert conn.status == nil
+      assert conn.assigns == %{locale: "es"}
+      assert Gettext.get_locale(MyGettext) == "es"
+    end
   end
 end

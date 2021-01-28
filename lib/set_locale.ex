@@ -3,7 +3,15 @@ defmodule SetLocale do
 
   defmodule Config do
     @enforce_keys [:gettext, :default_locale]
-    defstruct [:gettext, :default_locale, :cookie_key, additional_locales: [], cookie_disabled: false, allow_redirect: true]
+    defstruct [
+      :gettext,
+      :default_locale,
+      :cookie_key,
+      additional_locales: [],
+      cookie_disabled: false,
+      allow_redirect: true,
+      use_base_locale: false
+    ]
   end
 
   def init(opts) when is_tuple(hd(opts)), do: struct!(Config, opts)
@@ -34,22 +42,26 @@ defmodule SetLocale do
         } = conn,
         config
       ) do
+    # this use the base of the request_locale as locale
+    requested_locale = if config.use_base_locale, do: determine_locale(conn, requested_locale, config), else: requested_locale
 
-    if request_path != "/" and supported_locale?(requested_locale, config) do
-
-      if Enum.member?(config.additional_locales, requested_locale),
+    cond do
+      request_path != "/" and supported_locale?(requested_locale, config) ->
+        if Enum.member?(config.additional_locales, requested_locale),
           do: Gettext.put_locale(config.gettext, config.default_locale),
           else: Gettext.put_locale(config.gettext, requested_locale)
-        assign(conn, :locale, requested_locale)
-    else
-      if config.allow_redirect do
 
+        assign(conn, :locale, requested_locale)
+      config.allow_redirect ->
         path = rewrite_path(conn, requested_locale, config)
 
         conn
         |> redirect_to(path)
         |> halt
-      end
+      true ->
+        # assign the default locale
+        Gettext.put_locale(config.gettext, config.default_locale)
+        assign(conn, :locale, config.default_locale)
     end
   end
 
@@ -58,14 +70,12 @@ defmodule SetLocale do
       path = rewrite_path(conn, nil, config)
 
       conn
-        |> redirect_to(path)
-        |> halt
+      |> redirect_to(path)
+      |> halt
     else
       locale = determine_locale(conn, nil, config)
       assign(conn, :locale, locale)
     end
-
-
   end
 
   defp rewrite_path(%{request_path: request_path} = conn, requested_locale, config) do
@@ -133,7 +143,7 @@ defmodule SetLocale do
 
   defp maybe_extract_locale(_), do: nil
 
-  defp is_locale?(maybe_locale), do: Regex.match?(~r/^[a-z]{2}(-[a-z]{2})?$/, maybe_locale)
+  defp is_locale?(maybe_locale), do: Regex.match?(~r/^[a-z]{2}(-[a-zA-Z]{2})?$/, maybe_locale)
 
   defp strip_unsupported_locale(request_path) do
     [_, _ | rest] = String.split(request_path, "/")
@@ -153,10 +163,16 @@ defmodule SetLocale do
 
   defp get_redirect_path(_conn, path), do: path
 
-  defp get_locale_from_cookie(conn, %Config{
-    cookie_disabled: cookie_disabled,
-    cookie_key: cookie_key
-  } = _config) when cookie_disabled == false, do: conn.cookies[cookie_key]
+  defp get_locale_from_cookie(
+         conn,
+         %Config{
+           cookie_disabled: cookie_disabled,
+           cookie_key: cookie_key
+         } = _config
+       )
+       when cookie_disabled == false,
+       do: conn.cookies[cookie_key]
+
   defp get_locale_from_cookie(_conn, _config), do: nil
 
   defp get_locale_from_header(conn, gettext) do
