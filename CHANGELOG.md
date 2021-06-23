@@ -1,3 +1,12 @@
+## 0.2.9 (2020-06-15)
+- Bump requirements
+
+## 0.2.8 (2019-11-13)
+- Thanks @dirkholzapfel and @angelikatyborska for adding a whitelist option and fixing a failure when given an invalid locale
+
+## 0.2.7 (2019-06-24)
+- Thanks @mtarnovan and @angelikatyborska for fixing an issue when a cookie used a language that was not supported
+
 ## 0.2.6 (2019-02-21)
 - Thanks @mtarnovan for fixing a compilation warning
 
